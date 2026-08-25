@@ -198,21 +198,23 @@ class AI_Media {
 	/**
 	 * Determine automatic disclosure.
 	 *
-	 * Deliberately kept separate from the metadata layer so that
-	 * disclosure rules can be changed independently.
-	 *
 	 * @param int $attachment_id Attachment ID.
 	 * @return bool
 	 */
 	private function automatic_disclosure( $attachment_id ) {
 
 		/**
-		 * At this stage automatic mode does not force a disclosure.
+		 * Filters whether an AI disclosure should be displayed
+		 * when the disclosure setting is set to automatic.
 		 *
-		 * This will later be replaced by the actual disclosure
-		 * rules implemented by the plugin.
+		 * @param bool $disclose      Whether to display the disclosure.
+		 * @param int  $attachment_id Attachment ID.
 		 */
-		return false;
+		return (bool) apply_filters(
+			'ai_transparency_automatic_disclosure',
+			false,
+			$attachment_id
+		);
 	}
 
 	/**

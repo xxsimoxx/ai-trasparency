@@ -42,9 +42,21 @@ Available options:
 
 #### Automatic
 
-The plugin determines whether a disclosure should be displayed.
+The plugin determines whether a disclosure should be displayed by applying the `ai_transparency_automatic_disclosure` filter.
 
-The current implementation deliberately does not force a disclosure in automatic mode. The automatic rules can be extended independently in the future.
+By default, automatic mode does **not** display a disclosure.
+
+This behavior can be customized by a theme or another plugin. The filter receives both the current disclosure value and the attachment ID.
+
+For example, to always display the disclosure when the setting is `Automatic`:
+
+```php
+add_filter(
+    'ai_transparency_automatic_disclosure',
+    '__return_true'
+);
+```
+
 
 #### Required
 
