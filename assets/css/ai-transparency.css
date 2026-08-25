@@ -1,0 +1,54 @@
+.ai-content {
+	position: relative;
+	display: inline-block;
+	line-height: 0;
+}
+
+.ai-content img {
+	display: block;
+}
+
+.ai-content::after {
+	content: "";
+
+	position: absolute;
+	right: 0.5rem;
+	bottom: 0.5rem;
+
+	width: 2rem;
+	height: 2rem;
+
+	background-color: currentColor;
+
+	-webkit-mask-image: url("../images/ai-logo.svg");
+	mask-image: url("../images/ai-logo.svg");
+
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+
+	-webkit-mask-position: center;
+	mask-position: center;
+
+	-webkit-mask-size: contain;
+	mask-size: contain;
+
+	pointer-events: none;
+}
+
+.ai-content .screen-reader-text {
+	position: absolute;
+
+	width: 1px;
+	height: 1px;
+
+	padding: 0;
+	margin: -1px;
+
+	overflow: hidden;
+
+	clip: rect(0, 0, 0, 0);
+
+	white-space: nowrap;
+
+	border: 0;
+}
