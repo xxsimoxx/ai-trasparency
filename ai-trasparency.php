@@ -1,11 +1,17 @@
 <?php
 /**
- * Plugin Name: AI Transparency
- * Description: Provides AI content transparency indicators for images.
- * Version: 1.0.0
- * Requires at least: 6.0
+ * Plugin Name:  AI Transparency
+ * Description:  Provides AI content transparency indicators for images.
+ * Version:      1.0.0
+ * Requires CP:  2.0
  * Requires PHP: 7.4
- * Text Domain: ai-transparency
+ * Text Domain:  ai-transparency
+ * Domain Path:  /languages
+ * Author:       Simone Fioravanti
+ * Author URI:   https://software.gieffeedizioni.it
+ * Plugin URI:   https://software.gieffeedizioni.it
+ * License:      GPL2
+ * License URI:  https://www.gnu.org/licenses/gpl-2.0.html
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -20,19 +26,3 @@ require_once AI_TRANSPARENCY_DIR . 'includes/class-ai-frontend.php';
 require_once AI_TRANSPARENCY_DIR . 'includes/class-ai-transparency.php';
 
 AI_Transparency::instance();
-
-/*
-
-.ai-generated {
-	color: #7c3aed;
-}
-
-.ai-manipulated {
-	color: #2563eb;
-}
-
-.ai-generated-and-manipulated {
-	color: #dc2626;
-}
-
-*/

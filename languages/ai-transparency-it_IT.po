@@ -1,0 +1,83 @@
+# Copyright (C) 2026
+# This file is distributed under the same license as the AI Transparency plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: AI Transparency 1.0.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-trasparency\n"
+"Last-Translator: Simone Fioravanti <simone@simonefioravanti.it>\n"
+"Language-Team: Italian <tp@lists.linux.it>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-08-25T12:38:10+00:00\n"
+"PO-Revision-Date: 2026-08-25 14:39+0200\n"
+"X-Generator: WP-CLI 2.11.0\n"
+"X-Domain: ai-transparency\n"
+"Language: it\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Plugin Name of the plugin
+#: ai-trasparency.php
+msgid "AI Transparency"
+msgstr "AI Transparency"
+
+#. Description of the plugin
+#: ai-trasparency.php
+msgid "Provides AI content transparency indicators for images."
+msgstr "Fornisce indicatori di trasparenza sui contenuti generati dall'intelligenza artificiale per le immagini."
+
+#: includes/class-ai-media.php:227
+msgid "Content generated with artificial intelligence"
+msgstr "Contenuto generato con l'intelligenza artificiale"
+
+#: includes/class-ai-media.php:232
+msgid "Content manipulated with artificial intelligence"
+msgstr "Contenuto modificato con l'intelligenza artificiale"
+
+#: includes/class-ai-media.php:237
+msgid "Content generated and manipulated with artificial intelligence"
+msgstr "Contenuto generato e modificato con l'intelligenza artificiale"
+
+#: includes/class-ai-media.php:269
+msgid "AI content"
+msgstr "Contenuto generato o modificato con l'IA"
+
+#: includes/class-ai-media.php:281
+msgid "Indicates whether this image was generated or manipulated using AI."
+msgstr "Indica se questa immagine è stata generata o modificata utilizzando l'intelligenza artificiale."
+
+#: includes/class-ai-media.php:288
+msgid "AI disclosure"
+msgstr "Dichiarazione sull'uso dell'IA"
+
+#: includes/class-ai-media.php:300
+msgid "Controls whether an AI disclosure is displayed for this image."
+msgstr "Controlla se per questa immagine viene visualizzata una dichiarazione sull'uso dell'intelligenza artificiale."
+
+#: includes/class-ai-media.php:322
+msgid "Not AI-generated or manipulated"
+msgstr "Non generato o modificato con l'intelligenza artificiale"
+
+#: includes/class-ai-media.php:327
+msgid "AI generated"
+msgstr "Generato con l'intelligenza artificiale"
+
+#: includes/class-ai-media.php:332
+msgid "AI manipulated"
+msgstr "Modificato con l'intelligenza artificiale"
+
+#: includes/class-ai-media.php:337
+msgid "AI generated and manipulated"
+msgstr "Generato e modificato con l'intelligenza artificiale"
+
+#: includes/class-ai-media.php:380
+msgid "Automatic"
+msgstr "Automatica"
+
+#: includes/class-ai-media.php:385
+msgid "Required"
+msgstr "Obbligatoria"
+
+#: includes/class-ai-media.php:390
+msgid "Disabled"
+msgstr "Disabilitata"
