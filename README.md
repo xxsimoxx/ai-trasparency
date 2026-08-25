@@ -1,6 +1,6 @@
 # AI Transparency
 
-AI Transparency is a WordPress plugin that adds a visual disclosure badge to images that have been generated or manipulated using artificial intelligence.
+AI Transparency is a ClassicPress plugin that adds a visual disclosure badge to images that have been generated or manipulated using artificial intelligence.
 
 The plugin associates AI information with media attachments and can display an AI disclosure badge automatically on the frontend.
 
