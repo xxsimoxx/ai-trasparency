@@ -43,6 +43,19 @@ final class AI_Transparency {
 	}
 
 	/**
+	 * Register text domain.
+	 *
+	 * @return void
+	 */
+	public function text_domain() {
+		load_plugin_textdomain(
+			'ai-transparency',
+			false,
+			dirname( plugin_basename( AI_TRANSPARENCY_FILE ) ) . '/languages'
+		);
+	}
+
+	/**
 	 * Constructor.
 	 */
 	private function __construct() {
@@ -55,5 +68,13 @@ final class AI_Transparency {
 
 		$this->media->register_hooks();
 		$this->frontend->register_hooks();
+
+		/*
+		 * Add action to register text domain.
+		 */
+		add_action(
+			'plugins_loaded',
+			[ $this, 'text_domain' ]
+		);
 	}
 }
