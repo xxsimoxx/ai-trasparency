@@ -298,82 +298,161 @@ class AI_Frontend {
 	 */
 	private function get_attachment_id_by_image_url( $image ) {
 
-		$url = $this->get_image_url(
-			$image
-		);
+		$url = $this->get_image_url( $image );
 
 		if ( ! $url ) {
 			return 0;
 		}
 
 		/*
-		 * Remove WordPress image size suffixes.
+		 * Remove query strings and fragments.
 		 */
-		$url = $this->remove_image_size_suffix(
-			$url
+		$parsed_url = wp_parse_url( $url );
+
+		if ( empty( $parsed_url['path'] ) ) {
+			return 0;
+		}
+
+		$path = rawurldecode(
+			$parsed_url['path']
 		);
 
 		/*
-		 * First use WordPress's native lookup.
+		 * Remove WordPress image size suffixes.
 		 */
-		$attachment_id = attachment_url_to_postid(
-			$url
+		$path = $this->remove_image_size_suffix_from_path(
+			$path
 		);
+
+		global $wpdb;
+
+		/*
+		 * First try WordPress's native lookup.
+		 */
+		$attachment_id = attachment_url_to_postid( $url );
 
 		if ( $attachment_id ) {
 			return absint( $attachment_id );
 		}
 
 		/*
-		 * Fallback: compare the relative upload path against
-		 * the _wp_attached_file metadata.
+		 * Try matching _wp_attached_file using the uploads
+		 * directory returned by WordPress.
 		 */
 		$uploads = wp_upload_dir();
 
-		if (
-			empty( $uploads['baseurl'] ) ||
-			empty( $uploads['basedir'] )
-		) {
-			return 0;
+		if ( ! empty( $uploads['baseurl'] ) ) {
+
+			$base_path = wp_parse_url(
+				$uploads['baseurl'],
+				PHP_URL_PATH
+			);
+
+			if ( $base_path ) {
+
+				$base_path = rtrim(
+					$base_path,
+					'/'
+				);
+
+				if (
+					0 === strpos(
+						$path,
+						$base_path . '/'
+					)
+				) {
+					$relative_path = ltrim(
+						substr(
+							$path,
+							strlen( $base_path )
+						),
+						'/'
+					);
+
+					if ( $relative_path ) {
+
+						$attachment_id = $wpdb->get_var(
+							$wpdb->prepare(
+								"
+								SELECT post_id
+								FROM {$wpdb->postmeta}
+								WHERE meta_key = '_wp_attached_file'
+								AND meta_value = %s
+								LIMIT 1
+								",
+								$relative_path
+							)
+						);
+
+						if ( $attachment_id ) {
+							return absint( $attachment_id );
+						}
+					}
+				}
+			}
 		}
 
-		$baseurl = trailingslashit(
-			$uploads['baseurl']
+		/*
+		 * Last resort: locate the uploads directory in the URL path.
+		 *
+		 * This also works when the image URL uses a different
+		 * hostname from the WordPress uploads configuration.
+		 */
+		$uploads_marker = '/wp-content/uploads/';
+
+		$uploads_position = strpos(
+			$path,
+			$uploads_marker
 		);
 
-		if (
-			0 !== strpos(
-				$url,
-				$baseurl
-			)
-		) {
-			return 0;
+		if ( false !== $uploads_position ) {
+
+			$relative_path = ltrim(
+				substr(
+					$path,
+					$uploads_position + strlen( $uploads_marker )
+				),
+				'/'
+			);
+
+			if ( $relative_path ) {
+
+				$attachment_id = $wpdb->get_var(
+					$wpdb->prepare(
+						"
+						SELECT post_id
+						FROM {$wpdb->postmeta}
+						WHERE meta_key = '_wp_attached_file'
+						AND meta_value = %s
+						LIMIT 1
+						",
+						$relative_path
+					)
+				);
+
+				if ( $attachment_id ) {
+					return absint( $attachment_id );
+				}
+			}
 		}
 
-		$relative_path = ltrim(
-			substr(
-				$url,
-				strlen( $baseurl )
-			),
-			'/'
-		);
-
-		if ( ! $relative_path ) {
-			return 0;
-		}
-
-		global $wpdb;
-
+		/*
+		 * Finally, try the attachment GUID.
+		 *
+		 * GUID is not normally the preferred way to identify
+		 * attachments, but it is useful as a fallback for
+		 * legacy or unusual installations.
+		 */
 		$attachment_id = $wpdb->get_var(
 			$wpdb->prepare(
 				"
-				SELECT post_id
-				FROM {$wpdb->postmeta}
-				WHERE meta_key = '_wp_attached_file'
-				AND meta_value = %s
+				SELECT ID
+				FROM {$wpdb->posts}
+				WHERE post_type = 'attachment'
+				AND guid = %s
 				LIMIT 1
 				",
-				$relative_path
+				$url
 			)
 		);
 
@@ -381,22 +460,14 @@ class AI_Frontend {
 			$attachment_id
 		);
 	}
+
 	/**
-	 * Remove a WordPress image size suffix from a URL.
+	 * Remove a WordPress image size suffix from a path.
 	 *
-	 * @param string $url Image URL.
+	 * @param string $path Image path.
 	 * @return string
 	 */
-	private function remove_image_size_suffix( $url ) {
-
-		$path = wp_parse_url(
-			$url,
-			PHP_URL_PATH
-		);
-
-		if ( ! $path ) {
-			return $url;
-		}
+	private function remove_image_size_suffix_from_path( $path ) {
 
 		$extension = pathinfo(
 			$path,
@@ -404,7 +475,7 @@ class AI_Frontend {
 		);
 
 		if ( ! $extension ) {
-			return $url;
+			return $path;
 		}
 
 		$basename = pathinfo(
@@ -412,13 +483,6 @@ class AI_Frontend {
 			PATHINFO_FILENAME
 		);
 
-		/*
-		 * Match standard WordPress size suffixes such as:
-		 *
-		 * -300x200
-		 * -768x512
-		 * -1536x1024
-		 */
 		$basename = preg_replace(
 			'/-(\d+)x(\d+)$/',
 			'',
@@ -435,28 +499,10 @@ class AI_Frontend {
 				: trailingslashit( $directory )
 		);
 
-		$clean_path = $directory
+		return $directory
 			. $basename
 			. '.'
 			. $extension;
-
-		$scheme = wp_parse_url(
-			$url,
-			PHP_URL_SCHEME
-		);
-
-		$host = wp_parse_url(
-			$url,
-			PHP_URL_HOST
-		);
-
-		if ( $scheme && $host ) {
-			$clean_url = $scheme . '://' . $host . $clean_path;
-		} else {
-			$clean_url = $clean_path;
-		}
-
-		return $clean_url;
 	}
 
 	/**
