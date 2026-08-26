@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'AI_TRANSPARENCY_VERSION', '1.0.0' );
+define( 'AI_TRANSPARENCY_VERSION', '1.1.0' );
 define( 'AI_TRANSPARENCY_FILE', __FILE__ );
 define( 'AI_TRANSPARENCY_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AI_TRANSPARENCY_URL', plugin_dir_url( __FILE__ ) );
