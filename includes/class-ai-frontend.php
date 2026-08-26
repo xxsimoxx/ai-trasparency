@@ -15,6 +15,13 @@ class AI_Frontend {
 	private $media;
 
 	/**
+	 * Output buffer level created by this class.
+	 *
+	 * @var int
+	 */
+	private $output_buffer_level = 0;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param AI_Media $media Media component.
@@ -82,6 +89,12 @@ class AI_Frontend {
 			add_action(
 				'template_redirect',
 				[ $this, 'start_output_buffer' ],
+				0
+			);
+
+			add_action(
+				'shutdown',
+				[ $this, 'end_output_buffer' ],
 				0
 			);
 		}
@@ -261,9 +274,28 @@ class AI_Frontend {
 			return;
 		}
 
+		$this->output_buffer_level = ob_get_level() + 1;
+
 		ob_start(
 			[ $this, 'process_output' ]
 		);
+	}
+
+	/**
+	 * End the output buffer created by this class.
+	 *
+	 * @return void
+	 */
+	public function end_output_buffer() {
+
+		if (
+			$this->output_buffer_level > 0 &&
+			ob_get_level() >= $this->output_buffer_level
+		) {
+			ob_end_flush();
+
+			$this->output_buffer_level = 0;
+		}
 	}
 
 	/**
@@ -303,7 +335,10 @@ class AI_Frontend {
 		/*
 		 * Do not process feeds.
 		 */
-		if ( function_exists( 'is_feed' ) && is_feed() ) {
+		if (
+			function_exists( 'is_feed' ) &&
+			is_feed()
+		) {
 			return false;
 		}
 
@@ -331,8 +366,8 @@ class AI_Frontend {
 	/**
 	 * Process images found in HTML.
 	 *
-	 * @param string $content         HTML content.
-	 * @param bool   $match_by_url    Whether URL matching is forced.
+	 * @param string $content      HTML content.
+	 * @param bool   $match_by_url Whether URL matching is forced.
 	 * @return string
 	 */
 	private function process_content_images(
@@ -382,7 +417,6 @@ class AI_Frontend {
 					);
 
 					if ( $attachment_id ) {
-
 						return $this->wrap_image(
 							$image,
 							$attachment_id
@@ -442,7 +476,9 @@ class AI_Frontend {
 		);
 
 		if ( $attachment_id ) {
-			return absint( $attachment_id );
+			return absint(
+				$attachment_id
+			);
 		}
 
 		global $wpdb;
@@ -578,26 +614,30 @@ class AI_Frontend {
 	/**
 	 * Get the most likely image URL from an image tag.
 	 *
-	 * The attributes are checked in the following order:
-	 *
-	 * - src
-	 * - data-src
-	 * - data-lazy-src
-	 * - data-original
+	 * Lazy-loading attributes are checked before src because
+	 * themes may use a placeholder image in src and store the
+	 * actual image URL in data-src or a similar attribute.
 	 *
 	 * @param string $image Image HTML.
 	 * @return string
 	 */
 	private function get_image_url( $image ) {
 
-		$attributes = [
-			'src',
-			'data-src',
-			'data-lazy-src',
-			'data-original',
-		];
+		$attributes = apply_filters(
+			'ai_transparency_lazyload_attributes',
+			[
+				'data-src',
+				'data-lazy-src',
+				'data-original',
+				'src',
+			]
+		);
 
 		foreach ( $attributes as $attribute ) {
+
+			if ( ! is_string( $attribute ) || '' === $attribute ) {
+				continue;
+			}
 
 			$pattern = sprintf(
 				'/\b%s\s*=\s*["\']([^"\']+)["\']/i',

@@ -329,3 +329,31 @@ add_filter(
     '__return_true'
 );
 ```
+
+## Lazy-loaded images
+AI Transparency can identify images whose actual URL is stored in a lazy-loading HTML attribute instead of the `src` attribute.
+
+By default, the following attributes are checked, in this order:
+
+```html
+data-src
+data-lazy-src
+data-original
+src
+```
+
+
+This is useful for themes and plugins that initially load a placeholder image and store the actual image URL in a `data-*` attribute.
+
+### Adding custom lazy-loading attributes
+
+```php
+add_filter(
+	'ai_transparency_lazyload_attributes',
+	function ( $attributes ) {
+		$attributes[] = 'data-lazy';
+
+		return $attributes;
+	}
+);
+```
