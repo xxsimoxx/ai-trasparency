@@ -51,6 +51,9 @@ class AI_Frontend {
 			3
 		);
 
+		/*
+		 * Featured images.
+		 */
 		add_filter(
 			'post_thumbnail_html',
 			[ $this, 'filter_post_thumbnail' ],
@@ -59,39 +62,23 @@ class AI_Frontend {
 		);
 
 		/*
+		 * Complete post content.
+		 *
+		 * Disabled by default. Processing can be enabled through
+		 * the ai_transparency_process_content filter.
+		 */
+		add_filter(
+			'the_content',
+			[ $this, 'filter_content' ],
+			20
+		);
+
+		/*
 		 * Register the stylesheet.
 		 */
 		add_action(
 			'wp_enqueue_scripts',
 			[ $this, 'enqueue_assets' ]
-		);
-	}
-
-	/**
-	 * Filter featured image HTML.
-	 *
-	 * @param string       $html          Featured image HTML.
-	 * @param int          $post_id       Post ID.
-	 * @param int          $post_thumbnail_id Featured image ID.
-	 * @param string|array $size          Image size.
-	 * @param array        $attr          Image attributes.
-	 * @return string
-	 */
-	public function filter_post_thumbnail(
-		$html,
-		$post_id,
-		$post_thumbnail_id,
-		$size,
-		$attr
-	) {
-
-		if ( ! $post_thumbnail_id ) {
-			return $html;
-		}
-
-		return $this->wrap_image(
-			$html,
-			$post_thumbnail_id
 		);
 	}
 
@@ -128,9 +115,9 @@ class AI_Frontend {
 	 *
 	 * to images inserted through the Media Library.
 	 *
-	 * @param string  $image   Image HTML.
-	 * @param string  $context Current post content.
-	 * @param int     $attachment_id Attachment ID, when available.
+	 * @param string $image         Image HTML.
+	 * @param string $context       Current post content.
+	 * @param int    $attachment_id Attachment ID, when available.
 	 * @return string
 	 */
 	public function filter_content_image(
@@ -170,9 +157,114 @@ class AI_Frontend {
 	}
 
 	/**
+	 * Filter featured image HTML.
+	 *
+	 * @param string       $html               Featured image HTML.
+	 * @param int          $post_id            Post ID.
+	 * @param int          $post_thumbnail_id  Featured image ID.
+	 * @param string|array $size               Image size.
+	 * @param array        $attr               Image attributes.
+	 * @return string
+	 */
+	public function filter_post_thumbnail(
+		$html,
+		$post_id,
+		$post_thumbnail_id,
+		$size,
+		$attr
+	) {
+
+		if ( ! $post_thumbnail_id ) {
+			return $html;
+		}
+
+		return $this->wrap_image(
+			$html,
+			$post_thumbnail_id
+		);
+	}
+
+	/**
+	 * Filter complete post content.
+	 *
+	 * This is disabled by default and can be enabled through
+	 * the ai_transparency_process_content filter.
+	 *
+	 * @param string $content Post content.
+	 * @return string
+	 */
+	public function filter_content( $content ) {
+
+		if ( ! $this->should_process_content() ) {
+			return $content;
+		}
+
+		return $this->process_content_images(
+			$content
+		);
+	}
+
+	/**
+	 * Determine whether complete post content should be processed.
+	 *
+	 * @return bool
+	 */
+	private function should_process_content() {
+
+		return (bool) apply_filters(
+			'ai_transparency_process_content',
+			false
+		);
+	}
+
+	/**
+	 * Process images found in post content.
+	 *
+	 * @param string $content Post content.
+	 * @return string
+	 */
+	private function process_content_images( $content ) {
+
+		return preg_replace_callback(
+			'/<img\b[^>]*>/i',
+			function ( $matches ) {
+
+				$image = $matches[0];
+
+				/*
+				 * Look for the WordPress attachment class.
+				 *
+				 * Example:
+				 *
+				 * wp-image-123
+				 */
+				if (
+					! preg_match(
+						'/\bwp-image-(\d+)\b/',
+						$image,
+						$id_matches
+					)
+				) {
+					return $image;
+				}
+
+				$attachment_id = absint(
+					$id_matches[1]
+				);
+
+				return $this->wrap_image(
+					$image,
+					$attachment_id
+				);
+			},
+			$content
+		);
+	}
+
+	/**
 	 * Wrap an image when disclosure is required.
 	 *
-	 * @param string $html          Image HTML.
+	 * @param string $html           Image HTML.
 	 * @param int    $attachment_id Attachment ID.
 	 * @return string
 	 */
