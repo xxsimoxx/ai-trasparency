@@ -159,11 +159,11 @@ class AI_Frontend {
 	/**
 	 * Filter featured image HTML.
 	 *
-	 * @param string       $html               Featured image HTML.
-	 * @param int          $post_id            Post ID.
-	 * @param int          $post_thumbnail_id  Featured image ID.
-	 * @param string|array $size               Image size.
-	 * @param array        $attr               Image attributes.
+	 * @param string       $html              Featured image HTML.
+	 * @param int          $post_id           Post ID.
+	 * @param int          $post_thumbnail_id Featured image ID.
+	 * @param string|array $size              Image size.
+	 * @param array        $attr              Image attributes.
 	 * @return string
 	 */
 	public function filter_post_thumbnail(
@@ -218,6 +218,19 @@ class AI_Frontend {
 	}
 
 	/**
+	 * Determine whether content images should be matched by URL.
+	 *
+	 * @return bool
+	 */
+	private function should_match_content_images_by_url() {
+
+		return (bool) apply_filters(
+			'ai_transparency_match_content_images_by_url',
+			false
+		);
+	}
+
+	/**
 	 * Process images found in post content.
 	 *
 	 * @param string $content Post content.
@@ -232,39 +245,187 @@ class AI_Frontend {
 				$image = $matches[0];
 
 				/*
-				 * Look for the WordPress attachment class.
-				 *
-				 * Example:
-				 *
-				 * wp-image-123
+				 * First try to identify the attachment using
+				 * the standard WordPress wp-image-N class.
 				 */
 				if (
-					! preg_match(
+					preg_match(
 						'/\bwp-image-(\d+)\b/',
 						$image,
 						$id_matches
 					)
 				) {
-					return $image;
+					$attachment_id = absint(
+						$id_matches[1]
+					);
+
+					return $this->wrap_image(
+						$image,
+						$attachment_id
+					);
 				}
 
-				$attachment_id = absint(
-					$id_matches[1]
-				);
+				/*
+				 * If enabled, try to identify the attachment
+				 * using the image URL.
+				 */
+				if (
+					$this->should_match_content_images_by_url()
+				) {
+					$attachment_id = $this->get_attachment_id_by_image_url(
+						$image
+					);
 
-				return $this->wrap_image(
-					$image,
-					$attachment_id
-				);
+					if ( $attachment_id ) {
+						return $this->wrap_image(
+							$image,
+							$attachment_id
+						);
+					}
+				}
+
+				return $image;
 			},
 			$content
 		);
 	}
 
 	/**
+	 * Find an attachment ID from an image URL.
+	 *
+	 * @param string $image Image HTML.
+	 * @return int
+	 */
+	private function get_attachment_id_by_image_url( $image ) {
+
+		if (
+			! preg_match(
+				'/\bsrc\s*=\s*["\']([^"\']+)["\']/i',
+				$image,
+				$matches
+			)
+		) {
+			return 0;
+		}
+
+		$url = html_entity_decode(
+			$matches[1],
+			ENT_QUOTES,
+			'UTF-8'
+		);
+
+		$url = esc_url_raw( $url );
+
+		if ( ! $url ) {
+			return 0;
+		}
+
+		/*
+		 * Remove WordPress image size suffixes.
+		 *
+		 * Example:
+		 *
+		 * image-300x200.jpg
+		 *
+		 * becomes:
+		 *
+		 * image.jpg
+		 */
+		$url = $this->remove_image_size_suffix(
+			$url
+		);
+
+		$attachment_id = attachment_url_to_postid(
+			$url
+		);
+
+		return absint(
+			$attachment_id
+		);
+	}
+
+	/**
+	 * Remove a WordPress image size suffix from a URL.
+	 *
+	 * @param string $url Image URL.
+	 * @return string
+	 */
+	private function remove_image_size_suffix( $url ) {
+
+		$path = wp_parse_url(
+			$url,
+			PHP_URL_PATH
+		);
+
+		if ( ! $path ) {
+			return $url;
+		}
+
+		$extension = pathinfo(
+			$path,
+			PATHINFO_EXTENSION
+		);
+
+		if ( ! $extension ) {
+			return $url;
+		}
+
+		$basename = pathinfo(
+			$path,
+			PATHINFO_FILENAME
+		);
+
+		/*
+		 * Match standard WordPress size suffixes such as:
+		 *
+		 * -300x200
+		 * -768x512
+		 * -1536x1024
+		 */
+		$basename = preg_replace(
+			'/-(\d+)x(\d+)$/',
+			'',
+			$basename
+		);
+
+		$directory = dirname(
+			$path
+		);
+
+		$directory = (
+			'.' === $directory
+				? ''
+				: trailingslashit( $directory )
+		);
+
+		$clean_path = $directory
+			. $basename
+			. '.'
+			. $extension;
+
+		$scheme = wp_parse_url(
+			$url,
+			PHP_URL_SCHEME
+		);
+
+		$host = wp_parse_url(
+			$url,
+			PHP_URL_HOST
+		);
+
+		if ( $scheme && $host ) {
+			$clean_url = $scheme . '://' . $host . $clean_path;
+		} else {
+			$clean_url = $clean_path;
+		}
+
+		return $clean_url;
+	}
+
+	/**
 	 * Wrap an image when disclosure is required.
 	 *
-	 * @param string $html           Image HTML.
+	 * @param string $html          Image HTML.
 	 * @param int    $attachment_id Attachment ID.
 	 * @return string
 	 */

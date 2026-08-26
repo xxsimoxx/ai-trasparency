@@ -277,3 +277,36 @@ This CSS can be added using:
 **Appearance → Customize → Additional CSS**
 
 or through the theme's stylesheet, depending on the theme.
+
+## Processing post content
+
+By default, AI Transparency does not process the complete `the_content` output.
+
+This can be enabled using the `ai_transparency_process_content` filter:
+
+```php
+add_filter(
+    'ai_transparency_process_content',
+    '__return_true'
+);
+```
+
+### Matching images by URL
+
+When processing `the_content`, the plugin normally identifies images using the WordPress attachment class:
+
+```html
+wp-image-123
+```
+
+Some themes and page builders may generate image markup without this class.
+
+URL matching can optionally be enabled with the
+`ai_transparency_match_content_images_by_url` filter:
+
+```php
+add_filter(
+    'ai_transparency_match_content_images_by_url',
+    '__return_true'
+);
+```
