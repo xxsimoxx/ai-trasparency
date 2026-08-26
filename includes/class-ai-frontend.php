@@ -290,176 +290,223 @@ class AI_Frontend {
 		);
 	}
 
-	/**
-	 * Find an attachment ID from an image URL.
-	 *
-	 * @param string $image Image HTML.
-	 * @return int
+private function get_attachment_id_by_image_url( $image ) {
+
+	$url = $this->get_image_url( $image );
+
+	error_log(
+		'AI Transparency: image URL = ' . $url
+	);
+
+	if ( ! $url ) {
+		error_log(
+			'AI Transparency: no image URL found.'
+		);
+
+		return 0;
+	}
+
+	$parsed_url = wp_parse_url( $url );
+
+	if ( empty( $parsed_url['path'] ) ) {
+		error_log(
+			'AI Transparency: no URL path found.'
+		);
+
+		return 0;
+	}
+
+	$path = rawurldecode(
+		$parsed_url['path']
+	);
+
+	$path = $this->remove_image_size_suffix_from_path(
+		$path
+	);
+
+	error_log(
+		'AI Transparency: image path = ' . $path
+	);
+
+	/*
+	 * 1. Native WordPress lookup.
 	 */
-	private function get_attachment_id_by_image_url( $image ) {
+	$attachment_id = attachment_url_to_postid(
+		$url
+	);
 
-		$url = $this->get_image_url( $image );
+	error_log(
+		'AI Transparency: attachment_url_to_postid() = ' .
+		(int) $attachment_id
+	);
 
-		if ( ! $url ) {
-			return 0;
-		}
+	if ( $attachment_id ) {
+		return absint( $attachment_id );
+	}
 
-		/*
-		 * Remove query strings and fragments.
-		 */
-		$parsed_url = wp_parse_url( $url );
+	/*
+	 * 2. Match _wp_attached_file using the uploads URL.
+	 */
+	$uploads = wp_upload_dir();
 
-		if ( empty( $parsed_url['path'] ) ) {
-			return 0;
-		}
+	error_log(
+		'AI Transparency: uploads baseurl = ' .
+		( $uploads['baseurl'] ?? '' )
+	);
 
-		$path = rawurldecode(
-			$parsed_url['path']
+	if ( ! empty( $uploads['baseurl'] ) ) {
+
+		$base_path = wp_parse_url(
+			$uploads['baseurl'],
+			PHP_URL_PATH
 		);
 
-		/*
-		 * Remove WordPress image size suffixes.
-		 */
-		$path = $this->remove_image_size_suffix_from_path(
-			$path
+		error_log(
+			'AI Transparency: uploads base path = ' .
+			( $base_path ?: '' )
 		);
 
-		global $wpdb;
+		if ( $base_path ) {
 
-		/*
-		 * First try WordPress's native lookup.
-		 */
-		$attachment_id = attachment_url_to_postid( $url );
-
-		if ( $attachment_id ) {
-			return absint( $attachment_id );
-		}
-
-		/*
-		 * Try matching _wp_attached_file using the uploads
-		 * directory returned by WordPress.
-		 */
-		$uploads = wp_upload_dir();
-
-		if ( ! empty( $uploads['baseurl'] ) ) {
-
-			$base_path = wp_parse_url(
-				$uploads['baseurl'],
-				PHP_URL_PATH
+			$base_path = rtrim(
+				$base_path,
+				'/'
 			);
 
-			if ( $base_path ) {
-
-				$base_path = rtrim(
-					$base_path,
+			if (
+				0 === strpos(
+					$path,
+					$base_path . '/'
+				)
+			) {
+				$relative_path = ltrim(
+					substr(
+						$path,
+						strlen( $base_path )
+					),
 					'/'
 				);
 
-				if (
-					0 === strpos(
-						$path,
-						$base_path . '/'
-					)
-				) {
-					$relative_path = ltrim(
-						substr(
-							$path,
-							strlen( $base_path )
-						),
-						'/'
+				error_log(
+					'AI Transparency: relative path = ' .
+					$relative_path
+				);
+
+				if ( $relative_path ) {
+
+					global $wpdb;
+
+					$attachment_id = $wpdb->get_var(
+						$wpdb->prepare(
+							"
+							SELECT post_id
+							FROM {$wpdb->postmeta}
+							WHERE meta_key = '_wp_attached_file'
+							AND meta_value = %s
+							LIMIT 1
+							",
+							$relative_path
+						)
 					);
 
-					if ( $relative_path ) {
+					error_log(
+						'AI Transparency: _wp_attached_file lookup = ' .
+						(int) $attachment_id
+					);
 
-						$attachment_id = $wpdb->get_var(
-							$wpdb->prepare(
-								"
-								SELECT post_id
-								FROM {$wpdb->postmeta}
-								WHERE meta_key = '_wp_attached_file'
-								AND meta_value = %s
-								LIMIT 1
-								",
-								$relative_path
-							)
-						);
-
-						if ( $attachment_id ) {
-							return absint( $attachment_id );
-						}
+					if ( $attachment_id ) {
+						return absint( $attachment_id );
 					}
 				}
 			}
 		}
+	}
 
-		/*
-		 * Last resort: locate the uploads directory in the URL path.
-		 *
-		 * This also works when the image URL uses a different
-		 * hostname from the WordPress uploads configuration.
-		 */
-		$uploads_marker = '/wp-content/uploads/';
+	/*
+	 * 3. Fallback using /wp-content/uploads/.
+	 */
+	$uploads_marker = '/wp-content/uploads/';
 
-		$uploads_position = strpos(
-			$path,
-			$uploads_marker
+	$uploads_position = strpos(
+		$path,
+		$uploads_marker
+	);
+
+	error_log(
+		'AI Transparency: uploads marker position = ' .
+		var_export( $uploads_position, true )
+	);
+
+	if ( false !== $uploads_position ) {
+
+		$relative_path = ltrim(
+			substr(
+				$path,
+				$uploads_position + strlen( $uploads_marker )
+			),
+			'/'
 		);
 
-		if ( false !== $uploads_position ) {
+		error_log(
+			'AI Transparency: fallback relative path = ' .
+			$relative_path
+		);
 
-			$relative_path = ltrim(
-				substr(
-					$path,
-					$uploads_position + strlen( $uploads_marker )
-				),
-				'/'
+		if ( $relative_path ) {
+
+			global $wpdb;
+
+			$attachment_id = $wpdb->get_var(
+				$wpdb->prepare(
+					"
+					SELECT post_id
+					FROM {$wpdb->postmeta}
+					WHERE meta_key = '_wp_attached_file'
+					AND meta_value = %s
+					LIMIT 1
+					",
+					$relative_path
+				)
 			);
 
-			if ( $relative_path ) {
+			error_log(
+				'AI Transparency: fallback _wp_attached_file lookup = ' .
+				(int) $attachment_id
+			);
 
-				$attachment_id = $wpdb->get_var(
-					$wpdb->prepare(
-						"
-						SELECT post_id
-						FROM {$wpdb->postmeta}
-						WHERE meta_key = '_wp_attached_file'
-						AND meta_value = %s
-						LIMIT 1
-						",
-						$relative_path
-					)
-				);
-
-				if ( $attachment_id ) {
-					return absint( $attachment_id );
-				}
+			if ( $attachment_id ) {
+				return absint( $attachment_id );
 			}
 		}
-
-		/*
-		 * Finally, try the attachment GUID.
-		 *
-		 * GUID is not normally the preferred way to identify
-		 * attachments, but it is useful as a fallback for
-		 * legacy or unusual installations.
-		 */
-		$attachment_id = $wpdb->get_var(
-			$wpdb->prepare(
-				"
-				SELECT ID
-				FROM {$wpdb->posts}
-				WHERE post_type = 'attachment'
-				AND guid = %s
-				LIMIT 1
-				",
-				$url
-			)
-		);
-
-		return absint(
-			$attachment_id
-		);
 	}
+
+	/*
+	 * 4. Last resort: attachment GUID.
+	 */
+	global $wpdb;
+
+	$attachment_id = $wpdb->get_var(
+		$wpdb->prepare(
+			"
+			SELECT ID
+			FROM {$wpdb->posts}
+			WHERE post_type = 'attachment'
+			AND guid = %s
+			LIMIT 1
+			",
+			$url
+		)
+	);
+
+	error_log(
+		'AI Transparency: GUID lookup = ' .
+		(int) $attachment_id
+	);
+
+	return absint(
+		$attachment_id
+	);
+}
 
 	/**
 	 * Remove a WordPress image size suffix from a path.
