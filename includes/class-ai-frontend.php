@@ -51,12 +51,47 @@ class AI_Frontend {
 			3
 		);
 
+		add_filter(
+			'post_thumbnail_html',
+			[ $this, 'filter_post_thumbnail' ],
+			10,
+			5
+		);
+
 		/*
 		 * Register the stylesheet.
 		 */
 		add_action(
 			'wp_enqueue_scripts',
 			[ $this, 'enqueue_assets' ]
+		);
+	}
+
+	/**
+	 * Filter featured image HTML.
+	 *
+	 * @param string       $html          Featured image HTML.
+	 * @param int          $post_id       Post ID.
+	 * @param int          $post_thumbnail_id Featured image ID.
+	 * @param string|array $size          Image size.
+	 * @param array        $attr          Image attributes.
+	 * @return string
+	 */
+	public function filter_post_thumbnail(
+		$html,
+		$post_id,
+		$post_thumbnail_id,
+		$size,
+		$attr
+	) {
+
+		if ( ! $post_thumbnail_id ) {
+			return $html;
+		}
+
+		return $this->wrap_image(
+			$html,
+			$post_thumbnail_id
 		);
 	}
 
