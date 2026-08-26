@@ -322,21 +322,73 @@ class AI_Frontend {
 
 		/*
 		 * Remove WordPress image size suffixes.
-		 *
-		 * Example:
-		 *
-		 * image-300x200.jpg
-		 *
-		 * becomes:
-		 *
-		 * image.jpg
 		 */
 		$url = $this->remove_image_size_suffix(
 			$url
 		);
 
+		/*
+		 * First use WordPress's native lookup.
+		 */
 		$attachment_id = attachment_url_to_postid(
 			$url
+		);
+
+		if ( $attachment_id ) {
+			return absint( $attachment_id );
+		}
+
+		/*
+		 * Fallback: compare the relative upload path against
+		 * the _wp_attached_file metadata.
+		 */
+		$uploads = wp_upload_dir();
+
+		if (
+			empty( $uploads['baseurl'] ) ||
+			empty( $uploads['basedir'] )
+		) {
+			return 0;
+		}
+
+		$baseurl = trailingslashit(
+			$uploads['baseurl']
+		);
+
+		if (
+			0 !== strpos(
+				$url,
+				$baseurl
+			)
+		) {
+			return 0;
+		}
+
+		$relative_path = ltrim(
+			substr(
+				$url,
+				strlen( $baseurl )
+			),
+			'/'
+		);
+
+		if ( ! $relative_path ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		$attachment_id = $wpdb->get_var(
+			$wpdb->prepare(
+				"
+				SELECT post_id
+				FROM {$wpdb->postmeta}
+				WHERE meta_key = '_wp_attached_file'
+				AND meta_value = %s
+				LIMIT 1
+				",
+				$relative_path
+			)
 		);
 
 		return absint(
