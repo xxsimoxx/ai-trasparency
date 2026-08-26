@@ -280,9 +280,13 @@ or through the theme's stylesheet, depending on the theme.
 
 ## Processing post content
 
-By default, AI Transparency does not process the complete `the_content` output.
+By default, AI Transparency processes images through the standard ClassicPress
+image-related filters.
 
-This can be enabled using the `ai_transparency_process_content` filter:
+Some themes and page builders, however, generate image markup directly and
+may not provide an attachment ID or use the standard `wp-image-ID` class.
+
+For this reason, processing the complete post content can be enabled with:
 
 ```php
 add_filter(
@@ -307,6 +311,21 @@ URL matching can optionally be enabled with the
 ```php
 add_filter(
     'ai_transparency_match_content_images_by_url',
+    '__return_true'
+);
+```
+
+### Processing the final HTML output
+
+Some themes generate featured images and other images directly in their
+templates instead of using post_thumbnail_html() or including them in
+the_content.
+
+For these cases, an optional final-output processor is available:
+
+```php
+add_filter(
+    'ai_transparency_process_output',
     '__return_true'
 );
 ```

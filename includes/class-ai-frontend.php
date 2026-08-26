@@ -64,14 +64,27 @@ class AI_Frontend {
 		/*
 		 * Complete post content.
 		 *
-		 * Disabled by default. Processing can be enabled through
-		 * the ai_transparency_process_content filter.
+		 * Disabled by default.
 		 */
 		add_filter(
 			'the_content',
 			[ $this, 'filter_content' ],
 			20
 		);
+
+		/*
+		 * Process the final HTML output.
+		 *
+		 * Disabled by default.
+		 */
+		if ( $this->should_process_output() ) {
+
+			add_action(
+				'template_redirect',
+				[ $this, 'start_output_buffer' ],
+				0
+			);
+		}
 
 		/*
 		 * Register the stylesheet.
@@ -108,12 +121,6 @@ class AI_Frontend {
 
 	/**
 	 * Filter images found in post/page content.
-	 *
-	 * WordPress normally adds a class such as:
-	 *
-	 * wp-image-123
-	 *
-	 * to images inserted through the Media Library.
 	 *
 	 * @param string $image         Image HTML.
 	 * @param string $context       Current post content.
@@ -187,7 +194,7 @@ class AI_Frontend {
 	/**
 	 * Filter complete post content.
 	 *
-	 * This is disabled by default and can be enabled through
+	 * Disabled by default. Processing can be enabled through
 	 * the ai_transparency_process_content filter.
 	 *
 	 * @param string $content Post content.
@@ -231,16 +238,111 @@ class AI_Frontend {
 	}
 
 	/**
-	 * Process images found in post content.
+	 * Determine whether the final HTML output should be processed.
 	 *
-	 * @param string $content Post content.
+	 * @return bool
+	 */
+	private function should_process_output() {
+
+		return (bool) apply_filters(
+			'ai_transparency_process_output',
+			false
+		);
+	}
+
+	/**
+	 * Start output buffering.
+	 *
+	 * @return void
+	 */
+	public function start_output_buffer() {
+
+		if ( ! $this->can_process_output() ) {
+			return;
+		}
+
+		ob_start(
+			[ $this, 'process_output' ]
+		);
+	}
+
+	/**
+	 * Determine whether output buffering can be used.
+	 *
+	 * @return bool
+	 */
+	private function can_process_output() {
+
+		/*
+		 * Do not process administrative requests.
+		 */
+		if ( is_admin() ) {
+			return false;
+		}
+
+		/*
+		 * Do not process AJAX requests.
+		 */
+		if (
+			function_exists( 'wp_doing_ajax' ) &&
+			wp_doing_ajax()
+		) {
+			return false;
+		}
+
+		/*
+		 * Do not process REST API requests.
+		 */
+		if (
+			defined( 'REST_REQUEST' ) &&
+			REST_REQUEST
+		) {
+			return false;
+		}
+
+		/*
+		 * Do not process feeds.
+		 */
+		if ( function_exists( 'is_feed' ) && is_feed() ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Process the final HTML output.
+	 *
+	 * @param string $html Complete HTML output.
 	 * @return string
 	 */
-	private function process_content_images( $content ) {
+	public function process_output( $html ) {
+
+		if ( ! $html ) {
+			return $html;
+		}
+
+		return $this->process_content_images(
+			$html,
+			true
+		);
+	}
+
+	/**
+	 * Process images found in HTML.
+	 *
+	 * @param string $content         HTML content.
+	 * @param bool   $match_by_url    Whether URL matching is forced.
+	 * @return string
+	 */
+	private function process_content_images(
+		$content,
+		$match_by_url = false
+	) {
 
 		return preg_replace_callback(
 			'/<img\b[^>]*>/i',
-			function ( $matches ) {
+			function ( $matches ) use ( $match_by_url ) {
 
 				$image = $matches[0];
 
@@ -266,17 +368,21 @@ class AI_Frontend {
 				}
 
 				/*
-				 * If enabled, try to identify the attachment
-				 * using the image URL.
+				 * URL matching is used for the final output
+				 * processor, or when explicitly enabled for
+				 * the_content.
 				 */
 				if (
+					$match_by_url ||
 					$this->should_match_content_images_by_url()
 				) {
+
 					$attachment_id = $this->get_attachment_id_by_image_url(
 						$image
 					);
 
 					if ( $attachment_id ) {
+
 						return $this->wrap_image(
 							$image,
 							$attachment_id
@@ -290,223 +396,242 @@ class AI_Frontend {
 		);
 	}
 
-private function get_attachment_id_by_image_url( $image ) {
-
-	$url = $this->get_image_url( $image );
-
-	error_log(
-		'AI Transparency: image URL = ' . $url
-	);
-
-	if ( ! $url ) {
-		error_log(
-			'AI Transparency: no image URL found.'
-		);
-
-		return 0;
-	}
-
-	$parsed_url = wp_parse_url( $url );
-
-	if ( empty( $parsed_url['path'] ) ) {
-		error_log(
-			'AI Transparency: no URL path found.'
-		);
-
-		return 0;
-	}
-
-	$path = rawurldecode(
-		$parsed_url['path']
-	);
-
-	$path = $this->remove_image_size_suffix_from_path(
-		$path
-	);
-
-	error_log(
-		'AI Transparency: image path = ' . $path
-	);
-
-	/*
-	 * 1. Native WordPress lookup.
+	/**
+	 * Find an attachment ID from an image URL.
+	 *
+	 * @param string $image Image HTML.
+	 * @return int
 	 */
-	$attachment_id = attachment_url_to_postid(
-		$url
-	);
+	private function get_attachment_id_by_image_url( $image ) {
 
-	error_log(
-		'AI Transparency: attachment_url_to_postid() = ' .
-		(int) $attachment_id
-	);
-
-	if ( $attachment_id ) {
-		return absint( $attachment_id );
-	}
-
-	/*
-	 * 2. Match _wp_attached_file using the uploads URL.
-	 */
-	$uploads = wp_upload_dir();
-
-	error_log(
-		'AI Transparency: uploads baseurl = ' .
-		( $uploads['baseurl'] ?? '' )
-	);
-
-	if ( ! empty( $uploads['baseurl'] ) ) {
-
-		$base_path = wp_parse_url(
-			$uploads['baseurl'],
-			PHP_URL_PATH
+		$url = $this->get_image_url(
+			$image
 		);
 
-		error_log(
-			'AI Transparency: uploads base path = ' .
-			( $base_path ?: '' )
+		if ( ! $url ) {
+			return 0;
+		}
+
+		/*
+		 * Remove query strings and fragments.
+		 */
+		$parsed_url = wp_parse_url(
+			$url
 		);
 
-		if ( $base_path ) {
+		if ( empty( $parsed_url['path'] ) ) {
+			return 0;
+		}
 
-			$base_path = rtrim(
-				$base_path,
-				'/'
+		$path = rawurldecode(
+			$parsed_url['path']
+		);
+
+		/*
+		 * Remove WordPress image size suffixes.
+		 */
+		$path = $this->remove_image_size_suffix_from_path(
+			$path
+		);
+
+		/*
+		 * First use WordPress's native lookup.
+		 */
+		$attachment_id = attachment_url_to_postid(
+			$url
+		);
+
+		if ( $attachment_id ) {
+			return absint( $attachment_id );
+		}
+
+		global $wpdb;
+
+		/*
+		 * Try matching _wp_attached_file using the uploads
+		 * URL returned by WordPress.
+		 */
+		$uploads = wp_upload_dir();
+
+		if ( ! empty( $uploads['baseurl'] ) ) {
+
+			$base_path = wp_parse_url(
+				$uploads['baseurl'],
+				PHP_URL_PATH
 			);
 
-			if (
-				0 === strpos(
-					$path,
-					$base_path . '/'
-				)
-			) {
-				$relative_path = ltrim(
-					substr(
-						$path,
-						strlen( $base_path )
-					),
+			if ( $base_path ) {
+
+				$base_path = rtrim(
+					$base_path,
 					'/'
 				);
 
-				error_log(
-					'AI Transparency: relative path = ' .
-					$relative_path
-				);
-
-				if ( $relative_path ) {
-
-					global $wpdb;
-
-					$attachment_id = $wpdb->get_var(
-						$wpdb->prepare(
-							"
-							SELECT post_id
-							FROM {$wpdb->postmeta}
-							WHERE meta_key = '_wp_attached_file'
-							AND meta_value = %s
-							LIMIT 1
-							",
-							$relative_path
-						)
+				if (
+					0 === strpos(
+						$path,
+						$base_path . '/'
+					)
+				) {
+					$relative_path = ltrim(
+						substr(
+							$path,
+							strlen( $base_path )
+						),
+						'/'
 					);
 
-					error_log(
-						'AI Transparency: _wp_attached_file lookup = ' .
-						(int) $attachment_id
-					);
+					if ( $relative_path ) {
 
-					if ( $attachment_id ) {
-						return absint( $attachment_id );
+						$attachment_id = $wpdb->get_var(
+							$wpdb->prepare(
+								"
+								SELECT post_id
+								FROM {$wpdb->postmeta}
+								WHERE meta_key = '_wp_attached_file'
+								AND meta_value = %s
+								LIMIT 1
+								",
+								$relative_path
+							)
+						);
+
+						if ( $attachment_id ) {
+							return absint(
+								$attachment_id
+							);
+						}
 					}
 				}
 			}
 		}
+
+		/*
+		 * Last resort: locate the uploads directory in the URL path.
+		 *
+		 * This also works when the image URL uses a different
+		 * hostname from the WordPress uploads configuration.
+		 */
+		$uploads_marker = '/wp-content/uploads/';
+
+		$uploads_position = strpos(
+			$path,
+			$uploads_marker
+		);
+
+		if ( false !== $uploads_position ) {
+
+			$relative_path = ltrim(
+				substr(
+					$path,
+					$uploads_position + strlen( $uploads_marker )
+				),
+				'/'
+			);
+
+			if ( $relative_path ) {
+
+				$attachment_id = $wpdb->get_var(
+					$wpdb->prepare(
+						"
+						SELECT post_id
+						FROM {$wpdb->postmeta}
+						WHERE meta_key = '_wp_attached_file'
+						AND meta_value = %s
+						LIMIT 1
+						",
+						$relative_path
+					)
+				);
+
+				if ( $attachment_id ) {
+					return absint(
+						$attachment_id
+					);
+				}
+			}
+		}
+
+		/*
+		 * Finally, try the attachment GUID.
+		 *
+		 * GUID is only used as a last resort.
+		 */
+		$attachment_id = $wpdb->get_var(
+			$wpdb->prepare(
+				"
+				SELECT ID
+				FROM {$wpdb->posts}
+				WHERE post_type = 'attachment'
+				AND guid = %s
+				LIMIT 1
+				",
+				$url
+			)
+		);
+
+		return absint(
+			$attachment_id
+		);
 	}
 
-	/*
-	 * 3. Fallback using /wp-content/uploads/.
+	/**
+	 * Get the most likely image URL from an image tag.
+	 *
+	 * The attributes are checked in the following order:
+	 *
+	 * - src
+	 * - data-src
+	 * - data-lazy-src
+	 * - data-original
+	 *
+	 * @param string $image Image HTML.
+	 * @return string
 	 */
-	$uploads_marker = '/wp-content/uploads/';
+	private function get_image_url( $image ) {
 
-	$uploads_position = strpos(
-		$path,
-		$uploads_marker
-	);
+		$attributes = [
+			'src',
+			'data-src',
+			'data-lazy-src',
+			'data-original',
+		];
 
-	error_log(
-		'AI Transparency: uploads marker position = ' .
-		var_export( $uploads_position, true )
-	);
+		foreach ( $attributes as $attribute ) {
 
-	if ( false !== $uploads_position ) {
-
-		$relative_path = ltrim(
-			substr(
-				$path,
-				$uploads_position + strlen( $uploads_marker )
-			),
-			'/'
-		);
-
-		error_log(
-			'AI Transparency: fallback relative path = ' .
-			$relative_path
-		);
-
-		if ( $relative_path ) {
-
-			global $wpdb;
-
-			$attachment_id = $wpdb->get_var(
-				$wpdb->prepare(
-					"
-					SELECT post_id
-					FROM {$wpdb->postmeta}
-					WHERE meta_key = '_wp_attached_file'
-					AND meta_value = %s
-					LIMIT 1
-					",
-					$relative_path
+			$pattern = sprintf(
+				'/\b%s\s*=\s*["\']([^"\']+)["\']/i',
+				preg_quote(
+					$attribute,
+					'/'
 				)
 			);
 
-			error_log(
-				'AI Transparency: fallback _wp_attached_file lookup = ' .
-				(int) $attachment_id
-			);
+			if (
+				preg_match(
+					$pattern,
+					$image,
+					$matches
+				)
+			) {
+				$url = html_entity_decode(
+					$matches[1],
+					ENT_QUOTES,
+					'UTF-8'
+				);
 
-			if ( $attachment_id ) {
-				return absint( $attachment_id );
+				$url = esc_url_raw(
+					$url
+				);
+
+				if ( $url ) {
+					return $url;
+				}
 			}
 		}
+
+		return '';
 	}
-
-	/*
-	 * 4. Last resort: attachment GUID.
-	 */
-	global $wpdb;
-
-	$attachment_id = $wpdb->get_var(
-		$wpdb->prepare(
-			"
-			SELECT ID
-			FROM {$wpdb->posts}
-			WHERE post_type = 'attachment'
-			AND guid = %s
-			LIMIT 1
-			",
-			$url
-		)
-	);
-
-	error_log(
-		'AI Transparency: GUID lookup = ' .
-		(int) $attachment_id
-	);
-
-	return absint(
-		$attachment_id
-	);
-}
 
 	/**
 	 * Remove a WordPress image size suffix from a path.
@@ -550,61 +675,6 @@ private function get_attachment_id_by_image_url( $image ) {
 			. $basename
 			. '.'
 			. $extension;
-	}
-
-	/**
-	 * Get the most likely image URL from an image tag.
-	 *
-	 * The attributes are checked in the following order:
-	 *
-	 * - src
-	 * - data-src
-	 * - data-lazy-src
-	 * - data-original
-	 *
-	 * @param string $image Image HTML.
-	 * @return string
-	 */
-	private function get_image_url( $image ) {
-
-		$attributes = [
-			'src',
-			'data-src',
-			'data-lazy-src',
-			'data-original',
-		];
-
-		foreach ( $attributes as $attribute ) {
-
-			$pattern = sprintf(
-				'/\b%s\s*=\s*["\']([^"\']+)["\']/i',
-				preg_quote( $attribute, '/' )
-			);
-
-			if (
-				preg_match(
-					$pattern,
-					$image,
-					$matches
-				)
-			) {
-				$url = html_entity_decode(
-					$matches[1],
-					ENT_QUOTES,
-					'UTF-8'
-				);
-
-				$url = esc_url_raw(
-					$url
-				);
-
-				if ( $url ) {
-					return $url;
-				}
-			}
-		}
-
-		return '';
 	}
 
 	/**
