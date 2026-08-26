@@ -298,23 +298,9 @@ class AI_Frontend {
 	 */
 	private function get_attachment_id_by_image_url( $image ) {
 
-		if (
-			! preg_match(
-				'/\bsrc\s*=\s*["\']([^"\']+)["\']/i',
-				$image,
-				$matches
-			)
-		) {
-			return 0;
-		}
-
-		$url = html_entity_decode(
-			$matches[1],
-			ENT_QUOTES,
-			'UTF-8'
+		$url = $this->get_image_url(
+			$image
 		);
-
-		$url = esc_url_raw( $url );
 
 		if ( ! $url ) {
 			return 0;
@@ -395,7 +381,6 @@ class AI_Frontend {
 			$attachment_id
 		);
 	}
-
 	/**
 	 * Remove a WordPress image size suffix from a URL.
 	 *
@@ -472,6 +457,61 @@ class AI_Frontend {
 		}
 
 		return $clean_url;
+	}
+
+	/**
+	 * Get the most likely image URL from an image tag.
+	 *
+	 * The attributes are checked in the following order:
+	 *
+	 * - src
+	 * - data-src
+	 * - data-lazy-src
+	 * - data-original
+	 *
+	 * @param string $image Image HTML.
+	 * @return string
+	 */
+	private function get_image_url( $image ) {
+
+		$attributes = [
+			'src',
+			'data-src',
+			'data-lazy-src',
+			'data-original',
+		];
+
+		foreach ( $attributes as $attribute ) {
+
+			$pattern = sprintf(
+				'/\b%s\s*=\s*["\']([^"\']+)["\']/i',
+				preg_quote( $attribute, '/' )
+			);
+
+			if (
+				preg_match(
+					$pattern,
+					$image,
+					$matches
+				)
+			) {
+				$url = html_entity_decode(
+					$matches[1],
+					ENT_QUOTES,
+					'UTF-8'
+				);
+
+				$url = esc_url_raw(
+					$url
+				);
+
+				if ( $url ) {
+					return $url;
+				}
+			}
+		}
+
+		return '';
 	}
 
 	/**
