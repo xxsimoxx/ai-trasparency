@@ -29,6 +29,13 @@ final class AI_Transparency {
 	private $frontend;
 
 	/**
+	 * Plugin settings.
+	 *
+	 * @var AI_Settings
+	 */
+	private $settings;
+
+	/**
 	 * Get plugin instance.
 	 *
 	 * @return AI_Transparency
@@ -48,6 +55,7 @@ final class AI_Transparency {
 	 * @return void
 	 */
 	public function text_domain() {
+
 		load_plugin_textdomain(
 			'ai-transparency',
 			false,
@@ -59,6 +67,9 @@ final class AI_Transparency {
 	 * Constructor.
 	 */
 	private function __construct() {
+
+		$this->settings = new AI_Settings();
+		$this->settings->register_hooks();
 
 		$this->media = new AI_Media();
 

@@ -278,7 +278,15 @@ This CSS can be added using:
 
 or through the theme's stylesheet, depending on the theme.
 
-## Processing post content
+## If it's not working in your theme
+
+Under "Tools" -> "AI Transarency" you can toggle those hooks without writing code.
+
+Those three hooks let you enable stronger images detection.
+
+If you prefer using the hooks directly, remember to use a priority greater that 10.
+
+### Processing post content
 
 By default, AI Transparency processes images through the standard ClassicPress
 image-related filters.
@@ -318,8 +326,8 @@ add_filter(
 ### Processing the final HTML output
 
 Some themes generate featured images and other images directly in their
-templates instead of using post_thumbnail_html() or including them in
-the_content.
+templates instead of using `post_thumbnail_html()` or including them in
+`the_content`.
 
 For these cases, an optional final-output processor is available:
 
