@@ -23,7 +23,7 @@ The plugin associates AI information with media attachments and can display an A
 
 ### 1. Classify an image
 
-Go to **Media → Library** and edit an image.
+Go to **Media → Library** in list view and edit an image.
 
 You will find an **AI content** field with the following options:
 
@@ -101,22 +101,6 @@ Add the following CSS to your theme's custom CSS:
 ```css
 .ai-logo {
     color: #0066cc;
-}
-```
-
-For example, to use a dark gray:
-
-```css
-.ai-logo {
-    color: #333333;
-}
-```
-
-Or white:
-
-```css
-.ai-logo {
-    color: #ffffff;
 }
 ```
 
@@ -235,19 +219,9 @@ The AI badge itself is decorative and does not rely solely on color to communica
 
 ## SVG logo
 
-The AI logo is stored in:
+The AI logo is stored in `assets/images/ai-logo.svg`.
 
-```text
-assets/images/ai-logo.svg
-```
-
-The SVG is monochromatic and uses:
-
-```xml
-currentColor
-```
-
-for its visible elements.
+The SVG is monochromatic and uses `currentColor` for its visible elements.
 
 The frontend currently uses the SVG as a CSS mask. This allows the logo color to be controlled through the `.ai-logo` CSS class without modifying the SVG.
 
@@ -278,7 +252,15 @@ This CSS can be added using:
 
 or through the theme's stylesheet, depending on the theme.
 
-## Processing post content
+## If it's not working in your theme
+
+Under **Tools → AI Transarency** you can toggle those hooks without writing code.
+
+Those three hooks let you enable stronger images detection.
+
+If you prefer using the hooks directly, remember to use a priority greater that 10.
+
+### Processing post content
 
 By default, AI Transparency processes images through the standard ClassicPress
 image-related filters.
@@ -318,8 +300,8 @@ add_filter(
 ### Processing the final HTML output
 
 Some themes generate featured images and other images directly in their
-templates instead of using post_thumbnail_html() or including them in
-the_content.
+templates instead of using `post_thumbnail_html()` or including them in
+`the_content`.
 
 For these cases, an optional final-output processor is available:
 

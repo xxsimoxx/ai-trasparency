@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  AI Transparency
  * Description:  Provides AI content transparency indicators for images.
- * Version:      1.1.0
+ * Version:      1.2.0
  * Requires CP:  2.0
  * Requires PHP: 7.4
  * Text Domain:  ai-transparency
@@ -24,5 +24,6 @@ define( 'AI_TRANSPARENCY_URL', plugin_dir_url( __FILE__ ) );
 require_once AI_TRANSPARENCY_DIR . 'includes/class-ai-media.php';
 require_once AI_TRANSPARENCY_DIR . 'includes/class-ai-frontend.php';
 require_once AI_TRANSPARENCY_DIR . 'includes/class-ai-transparency.php';
+require_once AI_TRANSPARENCY_DIR . 'includes/class-ai-settings.php';
 
 AI_Transparency::instance();
